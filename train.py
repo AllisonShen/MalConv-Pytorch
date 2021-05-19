@@ -123,10 +123,20 @@ log = open(log_file_path,'w')
 log.write('step,tr_loss, tr_acc, val_loss, val_acc, time\n')
 
 valid_best_acc = 0.0
+valid_best_precision = 0.0
+valid_best_recall = 0.0
+valid_best_f1 = 0.0
+valid_best_fpr = 0.0
+valid_best_fnr = 0.0
+
+
+
 total_step = 0
 step_cost_time = 0
 
+PATIENCE = 20
 
+local_patience = PATIENCE
 while total_step < max_step:
     
     # Training 
@@ -147,8 +157,8 @@ while total_step < max_step:
         loss = bce_loss(pred,label)
         loss.backward()
         adam_optim.step()
-        
-        history['tr_loss'].append(loss.cpu().data.numpy()[0])
+        history['tr_loss'].append(loss.cpu().data.numpy())
+        # history['tr_loss'].append(loss.cpu().data.numpy()[0])
         history['tr_acc'].extend(list(label.cpu().data.numpy().astype(int)==(sigmoid(pred).cpu().data.numpy()+0.5).astype(int)))
         
         step_cost_time = time.time()-start
@@ -167,6 +177,12 @@ while total_step < max_step:
     history['val_loss'] = []
     history['val_acc'] = []
     history['val_pred'] = []
+
+    # other evaluation metrics..
+    tp = 0
+    tn = 0
+    fp = 0
+    fn = 0
     
     for _,val_batch_data in enumerate(validloader):
         cur_batch_size = val_batch_data[0].size(0)
@@ -179,8 +195,24 @@ while total_step < max_step:
 
         pred = malconv(exe_input)
         loss = bce_loss(pred,label)
+        
+        y_trues = list(label.cpu().data.numpy().astype(int))
+        y_preds = list((sigmoid(pred).cpu().data.numpy()+0.5).astype(int))
 
-        history['val_loss'].append(loss.cpu().data.numpy()[0])
+        for y_true, y_pred in zip(y_trues, y_preds):
+            if y_true == 1:
+                if y_true == y_pred:
+                    tp = tp + 1
+                else:
+                    fn = fn + 1
+            else:
+                if y_true == y_pred:
+                    tn = tn + 1
+                else:
+                    fp = fp + 1
+
+        history['val_loss'].append(loss.cpu().data.numpy())
+        # history['val_loss'].append(loss.cpu().data.numpy()[0])
         history['val_acc'].extend(list(label.cpu().data.numpy().astype(int)==(sigmoid(pred).cpu().data.numpy()+0.5).astype(int)))
         history['val_pred'].append(list(sigmoid(pred).cpu().data.numpy()))
 
@@ -190,13 +222,38 @@ while total_step < max_step:
     
     print(valid_msg.format(total_step,np.mean(history['tr_loss']),np.mean(history['tr_acc']),
                            np.mean(history['val_loss']),np.mean(history['val_acc'])))
-    if valid_best_acc < np.mean(history['val_acc']):
+
+    precision = tp / (tp + fp + 1e-6)
+    recall = tp / (tp + fn + 1e-6)    # true positive rate
+    f1 = 2*precision*recall / (precision + recall + 1e-6)
+    fpr = fp / (fp + tn + 1e-6)
+    fnr = fn / (fn + tp + 1e-6)
+
+    print(f"Precision: {precision:.2f}, Recall: {recall:.2f}, F1: {f1:.2f}, FPR: {fpr:.2f}, FNR: {fnr:.2f}")
+
+    
+    if (valid_best_f1 <= f1):
+        local_patience = PATIENCE
+
         valid_best_acc = np.mean(history['val_acc'])
+        valid_best_precision = precision
+        valid_best_recall = recall
+        valid_best_fnr = fnr
+        valid_best_fpr = fpr
+        valid_best_f1 = f1
+
         torch.save(malconv,chkpt_acc_path)
         print('Checkpoint saved at',chkpt_acc_path)
         write_pred(history['val_pred'],valid_idx,pred_path)
         print('Prediction saved at', pred_path)
+    else:
+        local_patience = local_patience - 1
+        if local_patience < 0:
+          break
 
     history['tr_loss'] = []
     history['tr_acc'] = []
+
+print("==============================END OF TRAINING======================================")
+print(f"Accuracy: {valid_best_acc:.2f}, Precision: {valid_best_precision:.2f}, Recall: {valid_best_recall:.2f}, F1: {valid_best_f1:.2f}, FPR: {valid_best_fpr:.2f}, FNR: {valid_best_fnr:.2f}")
 
