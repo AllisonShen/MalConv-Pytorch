@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
+from torch.utils.data import WeightedRandomSampler
 
 
 # Load config file for experiment
@@ -90,9 +91,15 @@ print('\tGoodware Count:',val_table['ground_truth'].value_counts()[0])
 if sample_cnt != 1:
     tr_table = tr_table.sample(n=sample_cnt,random_state=seed)
 
+trainratio = np.bincount(tr_table['ground_truth'])
+classcount = trainratio.tolist()
+train_weights = 1./torch.tensor(classcount, dtype=torch.float)
+train_sampleweights = train_weights[tr_table['ground_truth']]
+train_sampler = WeightedRandomSampler(weights=train_sampleweights, 
+num_samples = len(train_sampleweights))
 
 dataloader = DataLoader(ExeDataset(list(tr_table.index), train_data_path, list(tr_table.ground_truth),first_n_byte),
-                            batch_size=batch_size, shuffle=True, num_workers=use_cpu)
+                            batch_size=batch_size, num_workers=use_cpu, sampler=train_sampler)
 validloader = DataLoader(ExeDataset(list(val_table.index), valid_data_path, list(val_table.ground_truth),first_n_byte),
                         batch_size=batch_size, shuffle=False, num_workers=use_cpu)
 
