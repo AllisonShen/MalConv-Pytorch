@@ -6,7 +6,7 @@ import yaml
 import numpy as np
 import pandas as pd
 from src.util import ExeDataset,write_pred
-from src.model import MalConv
+from src.hzconvatt_model import HZConvAttention
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
@@ -25,7 +25,7 @@ except:
     sys.exit()
 
 
-exp_name = conf['exp_name']+'_sd_'+str(seed)
+exp_name = 'hzzconvatt' +'_sd_'+str(seed)
 print('Experiment:')
 print('\t',exp_name)
 
@@ -108,7 +108,7 @@ del tr_table
 del val_table
 
 
-malconv = MalConv(input_length=first_n_byte,window_size=window_size)
+malconv = HZConvAttention(input_length=first_n_byte,window_size=window_size)
 
 if os.path.isfile(chkpt_acc_path):
   malconv = torch.load(chkpt_acc_path)
@@ -145,7 +145,8 @@ valid_best_fnr = 0.0
 total_step = 0
 step_cost_time = 0
 
-PATIENCE = 60
+
+PATIENCE = 20
 
 local_patience = PATIENCE
 while total_step < max_step:
@@ -267,4 +268,3 @@ while total_step < max_step:
 
 print("==============================END OF TRAINING======================================")
 print(f"Accuracy: {valid_best_acc:.2f}, Precision: {valid_best_precision:.2f}, Recall: {valid_best_recall:.2f}, F1: {valid_best_f1:.2f}, FPR: {valid_best_fpr:.2f}, FNR: {valid_best_fnr:.2f}")
-

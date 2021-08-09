@@ -14,7 +14,9 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import WeightedRandomSampler
 
+from datetime import datetime
 
+start_time = datetime.now()
 # Load config file for experiment
 try:
     config_path = sys.argv[1]
@@ -106,12 +108,30 @@ validloader = DataLoader(ExeDataset(list(val_table.index), valid_data_path, list
 valid_idx = list(val_table.index)
 del tr_table
 del val_table
+#loading data done
+end_time = datetime.now()
+print(f"Duration of loading data: {end_time - start_time}")
 
+
+def updt(total, progress):
+    """
+    Displays or updates a console progress bar.
+
+    Original source: https://stackoverflow.com/a/15860757/1391441
+    """
+    barLength, status = 20, ""
+    progress = float(progress) / float(total)
+    if progress >= 1.:
+        progress, status = 1, "\r\n"
+    block = int(round(barLength * progress))
+    text = "\r[{}] {:.0f}% {}".format(
+        "#" * block + "-" * (barLength - block), round(progress * 100, 0),
+        status)
+    sys.stdout.write(text)
+    sys.stdout.flush()
 
 malconv = MalConv(input_length=first_n_byte,window_size=window_size)
 
-if os.path.isfile(chkpt_acc_path):
-  malconv = torch.load(chkpt_acc_path)
 
 bce_loss = nn.BCEWithLogitsLoss()
 adam_optim = optim.Adam([{'params':malconv.parameters()}],lr=learning_rate)
@@ -145,7 +165,7 @@ valid_best_fnr = 0.0
 total_step = 0
 step_cost_time = 0
 
-PATIENCE = 60
+PATIENCE = 20
 
 local_patience = PATIENCE
 while total_step < max_step:
@@ -182,6 +202,9 @@ while total_step < max_step:
         # Interupt for validation
         if total_step%test_step ==0:
             break
+        
+        # time.sleep(.1)
+        updt(len(dataloader), step + 1)
     
     
     # Testing

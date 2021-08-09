@@ -5,7 +5,7 @@ import sys
 import yaml
 import numpy as np
 import pandas as pd
-from src.util import ExeDataset,write_pred
+from src.util import HexDumpDataset,write_pred
 from src.model import MalConv
 from torch.utils.data import DataLoader
 import torch
@@ -145,7 +145,7 @@ valid_best_fnr = 0.0
 total_step = 0
 step_cost_time = 0
 
-PATIENCE = 60
+PATIENCE = 20
 
 local_patience = PATIENCE
 while total_step < max_step:

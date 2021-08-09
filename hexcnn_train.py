@@ -5,8 +5,8 @@ import sys
 import yaml
 import numpy as np
 import pandas as pd
-from src.util import ExeDataset,write_pred
-from src.model import MalConv
+from src.util import HexDumpDataset,write_pred
+from src.cnn_model import CNN_Model
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
@@ -25,7 +25,7 @@ except:
     sys.exit()
 
 
-exp_name = conf['exp_name']+'_sd_'+str(seed)
+exp_name = conf['exp_name']+'_sdhex_'+str(seed)
 print('Experiment:')
 print('\t',exp_name)
 
@@ -98,9 +98,9 @@ train_sampleweights = train_weights[tr_table['ground_truth']]
 train_sampler = WeightedRandomSampler(weights=train_sampleweights, 
 num_samples = len(train_sampleweights))
 
-dataloader = DataLoader(ExeDataset(list(tr_table.index), train_data_path, list(tr_table.ground_truth),first_n_byte),
+dataloader = DataLoader(HexDumpDataset(list(tr_table.index), train_data_path, list(tr_table.ground_truth),first_n_byte),
                             batch_size=batch_size, num_workers=use_cpu, sampler=train_sampler)
-validloader = DataLoader(ExeDataset(list(val_table.index), valid_data_path, list(val_table.ground_truth),first_n_byte),
+validloader = DataLoader(HexDumpDataset(list(val_table.index), valid_data_path, list(val_table.ground_truth),first_n_byte),
                         batch_size=batch_size, shuffle=False, num_workers=use_cpu)
 
 valid_idx = list(val_table.index)
@@ -108,13 +108,13 @@ del tr_table
 del val_table
 
 
-malconv = MalConv(input_length=first_n_byte,window_size=window_size)
+malconv = CNN_Model(input_length=first_n_byte,window_size=window_size)
 
 if os.path.isfile(chkpt_acc_path):
   malconv = torch.load(chkpt_acc_path)
 
 bce_loss = nn.BCEWithLogitsLoss()
-adam_optim = optim.Adam([{'params':malconv.parameters()}],lr=learning_rate)
+adam_optim = optim.Adam([{'params':malconv.parameters()}],lr=learning_rate, weight_decay=0.3)
 sigmoid = nn.Sigmoid()
 
 if use_gpu:
